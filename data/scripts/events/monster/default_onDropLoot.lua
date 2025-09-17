@@ -1,4 +1,7 @@
 local event = Event()
+local AUTOLOOT_STORAGE = 15002 -- Storage para ativação do autoloot
+local AUTOLOOT_LIST_START_KEY = 16001 -- Storage inicial da lista de itens permitidos
+local AUTOLOOT_LIST_MAX = 100 -- Máximo de itens na lista
 
 event.onDropLoot = function(self, corpse)
 	if configManager.getNumber(configKeys.RATE_LOOT) == 0 then
@@ -24,6 +27,35 @@ event.onDropLoot = function(self, corpse)
 	end
 
 	if player then
+		-- Verifica autoloot customizado
+		if player:getStorageValue(AUTOLOOT_STORAGE) == 1 then
+			local backpack = player:getSlotItem(CONST_SLOT_BACKPACK)
+			if backpack then
+						-- Percorre do último para o primeiro para evitar problemas ao remover itens
+						for i = corpse:getSize(), 1, -1 do
+							local lootItem = corpse:getItem(i - 1)
+							if lootItem then
+								local allow = false
+								local itemId = lootItem:getId()
+								for idx = 0, AUTOLOOT_LIST_MAX - 1 do
+									local storageKey = AUTOLOOT_LIST_START_KEY + idx
+									if player:getStorageValue(storageKey) == itemId then
+										allow = true
+										break
+									end
+								end
+								if allow then
+									if backpack:addItemEx(lootItem) == RETURNVALUE_NOERROR then
+										corpse:removeItem(lootItem)
+										-- Item transferido com sucesso
+									end
+									-- Se não couber, mantém no corpo normalmente
+								end
+								-- Se não estiver na lista, permanece no corpo normalmente
+							end
+						end
+			end
+		end
 		local text
 		if doCreateLoot then
 			text = ("Loot of %s: %s."):format(mType:getNameDescription(), corpse:getContentDescription())
